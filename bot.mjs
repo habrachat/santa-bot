@@ -263,12 +263,12 @@ bot.on('message', (nickname, message) => {
 setInterval(() => {
   fs.writeFileSync('./profiles.json', JSON.stringify(userProfiles));
 
-  activity--;
+  activity = Math.max(0, activity - 1);
   if (activity < 3)
     return;
 
-  if (activity > 20)
-    activity /= 2;
+  if (Math.random() > 0.2)
+    activity = Math.round(activity / 2);
 
   if (Math.random() > 0.5)
     if (!activeCatchEvent) announceCatchEvent();
