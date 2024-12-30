@@ -1,0 +1,22 @@
+{
+  "name": "santa-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "module": "./dist/index.js",
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "eslint": "^9.17.0",
+    "globals": "^15.14.0",
+    "pkgroll": "^2.6.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.2"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "npx pkgroll",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix"
+  }
+}

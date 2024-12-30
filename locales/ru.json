@@ -1,0 +1,34 @@
+{
+  "events": {
+    "wild_creature_appears": "Появилось дикое существо **{{name}}**! Набери _{{COMMAND_PREFIX}}catch_, чтобы поймать!",
+    "item_appears": "**Появился предмет или монеты!** Введи _{{COMMAND_PREFIX}}collect_, чтобы забрать!",
+    "catch_success": "{{player}} поймал дикое существо **{{creature}}**!",
+    "collect_coins": "{{player}} забрал **{{amount}} монет**!",
+    "collect_item": "{{player}} забрал **{{item}}**!"
+  },
+  "battles": {
+    "challenge": "{{challenger}} вызвал {{opponent}} на битву! {{opponent}}, вводи {{COMMAND_PREFIX}}accept чтобы сразиться или {{COMMAND_PREFIX}}decline, если зассал.",
+    "no_creatures": "{{player}}: нечем бороться",
+    "cant_fight_me": "Ты не можешь вызвать меня",
+    "no_battles": "У {{player}} нет битв.",
+    "victory": "Существо игрока {{winner}} **{{winnerCreature}}** победило против существа игрока {{loser}} **{{loserCreature}}** и залевелапилось до {{level}} левела!",
+    "item_stolen": "{{winner}} стырил **{{item}}** у {{loser}}!",
+    "coins_stolen": "{{winner}} стырил **{{amount}} монет** у {{loser}}!"
+  },
+  "items": {
+    "use_success": "{{player}} использовал **{{item}}** на существо **{{creature}}**.",
+    "use_fail": "{{item}} нельзя использовать.",
+    "no_item": "У {{player}} нет **{{item}}**!",
+    "no_creatures": "У {{player}} нет пойманных существ!"
+  },
+  "profile": {
+    "header": "**Профиль {{player}}**:",
+    "creatures": "_Существа_: {{creatures}}",
+    "inventory": "_Инвентарь_: {{inventory}}",
+    "creature_not_found": "Существо не найдено",
+    "creature_selected": "**{{creature}}** теперь атакующий"
+  },
+  "help": {
+    "available_commands": "**Команды**: "
+  }
+}

@@ -1,23 +1,35 @@
-import { spawn } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import readline from 'readline';
 
-const sanitizeName = name => name.replace(/[\\w.+-]/g, '');
+const sanitizeName = (name: string): string => name.replace(/[\\w.+-]/g, '');
+
+interface SSHChatBotConfig {
+  privateKeyPath: string;
+  username: string;
+  host: string;
+  port?: number;
+  rtl?: number;
+}
 
 class SSHChatBot extends EventEmitter {
-  constructor(config) {
+  private config: SSHChatBotConfig;
+  private sshProcess: ChildProcess | null = null;
+  private asyncEvents: Record<string, EventEmitter> = {};
+  private currentInfoBlock: string = '';
+  private loading: boolean = true;
+  private messageQueue: string[] = [];
+  private isProcessingMessage = false;
+
+  constructor(config: SSHChatBotConfig) {
     super();
     this.config = config;
-    this.sshProcess = null;
-    this.asyncEvents = {};
-    this.currentInfoBlock = '';
-    this.loading = true;
   }
 
-  connect() {
+  connect(): void {
     const sshArgs = [
       '-i', this.config.privateKeyPath,
-      '-p', (this.config.port || 22),
+      '-p', (this.config.port || 22).toString(),
       `${this.config.username}@${this.config.host}`
     ];
 
@@ -35,11 +47,28 @@ class SSHChatBot extends EventEmitter {
     this.send('/theme mono');
   }
 
-  send(data) {
-    this.sshProcess.stdin.write(data + '\r\n');
+  send(data: string): void {
+    this.messageQueue.push(data);
+    this.processMessageQueue();
   }
+  
+  processMessageQueue() {
+    if (this.isProcessingMessage || this.messageQueue.length === 0) return;
+    this.isProcessingMessage = true;
 
-  runAsyncEvent(key) {
+    const message = this.messageQueue.shift();
+    if (!message)
+      return;
+    
+    this.sshProcess?.stdin?.write(message + '\r\n');
+
+    setTimeout(() => {
+        this.isProcessingMessage = false;
+        this.processMessageQueue();
+    }, this.config.rtl ?? 700);
+};
+
+  private runAsyncEvent<T>(key: string): Promise<T> {
     if (!this.asyncEvents[key]) {
       const ev = new EventEmitter();
       this.asyncEvents[key] = ev;
@@ -54,22 +83,22 @@ class SSHChatBot extends EventEmitter {
     });
   }
 
-  async whois(username) {
-    return this.runAsyncEvent(`/whois ${username}`);
+  async whois(username: string): Promise<{[key: string]: string}> {
+    return this.runAsyncEvent<{[key: string]: string}>(`/whois ${username}`);
   }
 
-  async names() {
-    return this.runAsyncEvent('/names');
+  async names(): Promise<string[]> {
+    return this.runAsyncEvent<string[]>('/names');
   }
 
-  onInfoBlock(info) {
-    let data, key;
+  private onInfoBlock(info: string): void {
+    let data: { [key: string]: string } | string[], key: string;
 
     if (info.startsWith('name: ')) {
       data = {};
       info.split('\n').forEach((line) => {
         const [k, v] = line.split(': ', 2);
-        data[k] = v;
+        (data as { [key: string]: string })[k] = v;
       });
       const name = data['name'].replace(/^[@? ]/, '');
       key = `/whois ${name}`;
@@ -86,13 +115,15 @@ class SSHChatBot extends EventEmitter {
     }
   }
 
-  initStream() {
+  private initStream(): void {
+    if (!this.sshProcess) return;
+
     const rl = readline.createInterface({
-      input: this.sshProcess.stdout,
-      output: this.sshProcess.stdin,
+      input: this.sshProcess.stdout!,
+      output: this.sshProcess.stdin!,
     });
 
-    rl.on('line', line => {
+    rl.on('line', (line: string) => {
       if (this.loading) {
         setTimeout(() => {
           this.loading = false;
@@ -104,8 +135,8 @@ class SSHChatBot extends EventEmitter {
       }
       line = line.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
       line = line.trimEnd();
-      
-      if (line.startsWith('['+this.config.username+']')) {
+
+      if (line.startsWith('[' + this.config.username + ']')) {
         return;
       }
 

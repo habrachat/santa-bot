@@ -1,2 +1,4 @@
-id_*
-profiles.json
+/id_*
+/data/profiles.json
+node_modules
+/dist
