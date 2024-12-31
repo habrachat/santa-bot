@@ -1,4 +1,5 @@
-import { Creature, Stats } from "../models/Creature.ts";
+import { Creature } from "../models/Creature.ts";
+import { Stats } from "../models/CreatureBase.ts";
 import { UserProfile } from "../models/UserProfile.ts";
 
 export function generateNumberInRange(str: string, min: number, max: number) {
@@ -11,7 +12,7 @@ export function generateNumberInRange(str: string, min: number, max: number) {
   return min + Math.abs(hash) % (max - min + 1);
 }
 
-export function getRandomItem<T>(array: T[]): T {
+export function getRandomItem<T>(array: readonly T[]): T {
   return array[Math.floor(Math.random() * array.length)];
 }
 
@@ -20,7 +21,7 @@ export function formatStats(stats: Stats): string {
 }
 
 export function formatCreatureDisplay(creature: Creature, isActive: boolean) {
-  return `${isActive ? '[A] ' : ''}**${creature.name}** [⬆️${creature.level} 📊${formatStats(creature.stats)}]`;
+  return `${isActive ? '[A] ' : ''}**${creature.name}** [⬆️${creature.stage} ⚡${creature.energy} 📊${formatStats(creature.stats)}]`;
 }
 
 export function formatInventory(profile: UserProfile) {

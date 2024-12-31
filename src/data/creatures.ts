@@ -1,3 +1,5 @@
+import { CreatureBase } from "../models/CreatureBase.ts";
+
 export default Object.freeze([
   {
     "name": "😠 Ворчливый эльф",
@@ -511,4 +513,4 @@ export default Object.freeze([
       }
     ]
   }
-]);
+]) as CreatureBase[];

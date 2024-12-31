@@ -7,15 +7,15 @@ import { config, GAME_CONFIG } from '../config.ts';
 import items from '../data/items.ts';
 import SSHChatBot from '../lib/SSHChatBot.ts';
 import creatures from '../data/creatures.ts';
+import { CreatureBase } from '../models/CreatureBase.ts';
 
 export default class GameManager {
   bot: SSHChatBot;
   userProfiles: { [key: string]: UserProfile } = {};
-  items = items;
-  creatures: Creature[] = [];
   i18n: I18nManager;
   activity = 0;
-  activeCatchEvent: { creature: Creature, claimed: boolean } | null;
+  spawnActivity = 0;
+  activeCatchEvent: { creature: CreatureBase, claimed: boolean } | null;
   activeCollectEvent: { collectable: Item | { coins: number }, claimed: boolean } | null;
 
   commands: { [key: string]: (nickname: string, ...attrs: string[]) => void } = {
@@ -27,6 +27,7 @@ export default class GameManager {
     battle: this.handleBattleRequest,
     accept: this.handleBattleAccept,
     decline: this.handleBattleDecline,
+    use: this.useItem
   };
 
   constructor(bot: SSHChatBot) {
@@ -35,7 +36,6 @@ export default class GameManager {
     this.activeCollectEvent = null;
     this.i18n = new I18nManager(GAME_CONFIG.LOCALE);
     this.loadProfiles();
-    this.initializeCreatures();
   }
 
   loadProfiles() {
@@ -56,10 +56,6 @@ export default class GameManager {
     fs.writeFileSync('./data/profiles.json', JSON.stringify(this.userProfiles, null, 2));
   }
 
-  initializeCreatures() {
-    this.creatures = creatures.map(c => new Creature(c.evolutions[0].name, c.evolutions[0].stage, c.evolutions[0].stats));
-  }
-
   getOrCreateProfile(nickname: string) {
     if (!this.userProfiles[nickname]) {
       this.userProfiles[nickname] = new UserProfile();
@@ -71,23 +67,19 @@ export default class GameManager {
     this.activity++;
     
     if (message.startsWith(GAME_CONFIG.COMMAND_PREFIX)) {
-      const [command, ...args] = message.split(' ').map(arg => arg.replace(/[^A-z0-9\[\]]/g, ''));
+      const [command, ...args] = message.split(' ').map(arg => arg.replace(/[^A-z0-9А-я\[\]]/g, ''));
       if (this.commands[command]) {
         console.log(`Resolving command "${command}" for ${nickname}`);
         this.commands[command].bind(this)(nickname, ...args);
         return;
-      }
-
-      if (command === GAME_CONFIG.COMMAND_PREFIX + 'use') {
-        const [itemName, index] = args;
-        this.useItem(nickname, itemName, parseInt(index, 10));
       }
     }
   }
 
   updateActivity() {
     this.activity = Math.max(0, this.activity - 1);
-    if (this.activity < GAME_CONFIG.MIN_ACTIVITY_THRESHOLD) return;
+    if (this.activity < GAME_CONFIG.MIN_ACTIVITY_THRESHOLD)
+      return;
 
     if (Math.random() > GAME_CONFIG.ACTIVITY_DECAY_CHANCE) {
       this.activity = Math.round(this.activity / GAME_CONFIG.ACTIVITY_DECAY_FACTOR);
@@ -95,19 +87,27 @@ export default class GameManager {
   }
 
   spawnRandomEvent() {
-    if (this.activity < GAME_CONFIG.MIN_ACTIVITY_THRESHOLD) return;
+    if (this.activity < GAME_CONFIG.MIN_ACTIVITY_THRESHOLD)
+      return;
 
-    if (Math.random() > GAME_CONFIG.EVENT_SPAWN_CHANCE) return;
+    if (Math.random() < Math.min(0.9, this.spawnActivity * 0.1)) {
+      this.spawnActivity--;
+      return;
+    }
+    
+    this.spawnActivity++;
 
     if (Math.random() > GAME_CONFIG.CATCH_EVENT_WEIGHT) {
-      if (!this.activeCatchEvent) this.announceCatchEvent();
+      if (!this.activeCatchEvent)
+        this.announceCatchEvent();
     } else {
-      if (!this.activeCollectEvent) this.announceCollectEvent();
+      if (!this.activeCollectEvent)
+        this.announceCollectEvent();
     }
   }
 
   announceCatchEvent() {
-    const creature = getRandomItem(this.creatures);
+    const creature = getRandomItem(creatures);
     this.activeCatchEvent = { creature, claimed: false };
 
     this.bot.send(this.i18n.t('events.wild_creature_appears', {
@@ -118,7 +118,7 @@ export default class GameManager {
   announceCollectEvent() {
     const coins = Math.floor(Math.random() * (GAME_CONFIG.MAX_COINS_DROP - GAME_CONFIG.MIN_COINS_DROP + 1)) + GAME_CONFIG.MIN_COINS_DROP;
     this.activeCollectEvent = {
-      collectable: /* Math.random() < 0.5 ? getRandomItem(this.items) : */ { coins },
+      collectable: Math.random() < 0.5 ? getRandomItem(items) : { coins },
       claimed: false
     };
 
@@ -128,18 +128,13 @@ export default class GameManager {
   handleCatchEvent(nickname: string) {
     if (this.activeCatchEvent && !this.activeCatchEvent.claimed) {
       this.activeCatchEvent.claimed = true;
-      const creatureData = this.activeCatchEvent.creature;
       const profile = this.getOrCreateProfile(nickname);
 
-      profile.addCreature(new Creature(
-        creatureData.name,
-        1,
-        { ...creatureData.stats }
-      ));
+      profile.addCreature(new Creature(this.activeCatchEvent.creature));
 
       this.bot.send(this.i18n.t('events.catch_success', {
         player: nickname,
-        creature: creatureData.name
+        creature: this.activeCatchEvent.creature.name
       }));
 
       this.activeCatchEvent = null;
@@ -170,32 +165,35 @@ export default class GameManager {
     }
   }
 
-  useItem(nickname: string, itemName: string, creatureIndex: number) {
-    const profile = this.getOrCreateProfile(nickname);
-    const item = this.items.find(i => i.name === itemName);
+  useItem(nickname: string, itemName: string) {
+    if (!itemName || !itemName.length) {
+      this.bot.send(this.i18n.t('items.usage'));
+      return;
+    }
 
-    if (!item || !profile.items[itemName] || profile.items[itemName] <= 0) {
+    const profile = this.getOrCreateProfile(nickname);
+    const item = items.find(i => i.name.toLowerCase() === itemName.trim().toLowerCase());
+
+    if (!item || !profile.items[item.name] || profile.items[item.name] <= 0) {
       this.bot.send(this.i18n.t('items.no_item', {
         player: nickname,
-        item: itemName
+        item: item?.name || itemName
       }));
       return;
     }
 
-    if (!profile.creatures[creatureIndex]) {
+    if (!profile.getActiveCreature()) {
       this.bot.send(this.i18n.t('items.no_creatures', {
         player: nickname
       }));
       return;
     }
 
-    const creature = profile.creatures[creatureIndex];
-
-    if (item.effect(creature)) {
+    if (item.effect(profile.getActiveCreature(), this.bot.send.bind(this.bot))) {
       this.bot.send(this.i18n.t('items.use_success', {
         player: nickname,
         item: itemName,
-        creature: creature.name
+        creature: profile.getActiveCreature().name
       }));
       profile.removeItem(itemName);
     } else {
@@ -255,23 +253,33 @@ export default class GameManager {
       return;
     }
 
-    const challengerScore = this.calculateBattleScore(challengerCreature);
-    const opponentScore = this.calculateBattleScore(opponentCreature);
+    challengerCreature.refillEnergy();
+    opponentCreature.refillEnergy();
+
+    if (challengerCreature.energy <= 0 || opponentCreature.energy <= 0) {
+      this.bot.send(this.i18n.t('battles.no_energy', {
+        player: nickname
+      }));
+      return;
+    }
+
+    const challengerScore = challengerCreature.calculateBattleScore(opponentCreature);
+    const opponentScore = opponentCreature.calculateBattleScore(challengerCreature);
 
     const winner = challengerScore > opponentScore ? challenger : nickname;
     const loser = challengerScore > opponentScore ? nickname : challenger;
     const winnerProfile = this.getOrCreateProfile(winner);
     const loserProfile = this.getOrCreateProfile(loser);
 
-    winnerProfile.getActiveCreature().levelUp();
-
     this.bot.send(this.i18n.t('battles.victory', {
       winner,
       winnerCreature: winnerProfile.getActiveCreature().name,
       loser,
-      loserCreature: loserProfile.getActiveCreature().name,
-      level: winnerProfile.getActiveCreature().level
+      loserCreature: loserProfile.getActiveCreature().name
     }));
+
+    challengerCreature.energy--;
+    opponentCreature.energy--;
 
     this.handlePostBattleRewards(winner, loser, winnerProfile, loserProfile);
 
@@ -286,12 +294,6 @@ export default class GameManager {
         player: nickname
       }));
     }
-  }
-
-  calculateBattleScore(creature: Creature) {
-    return (creature.stats.attack + creature.stats.speed) *
-      (Math.random() * 2 + 0.5) *
-      (1 + creature.level * 0.1);
   }
 
   handlePostBattleRewards(winner: string, loser: string, winnerProfile: UserProfile, loserProfile: UserProfile) {
@@ -323,6 +325,7 @@ export default class GameManager {
 
   showProfile(nickname: string) {
     const profile = this.getOrCreateProfile(nickname);
+    profile.creatures.forEach(c => c.refillEnergy());
 
     this.bot.send([
       this.i18n.t('profile.header', { player: nickname }),

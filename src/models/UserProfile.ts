@@ -2,7 +2,7 @@ import { Creature } from "./Creature.ts";
 
 export interface Item {
   name: string;
-  effect: (creature: Creature) => boolean;
+  effect: (creature: Creature, send: (msg: string) => void) => boolean;
 }
 
 export interface BattleRequest {
@@ -15,6 +15,7 @@ export class UserProfile {
   items: Record<string, number> = {};
   battleRequest: BattleRequest | undefined;
   activeCreatureIndex: number = 0;
+  static version = 2;
 
   addCreature(creature: Creature): void {
     this.creatures.push(creature);
@@ -31,7 +32,6 @@ export class UserProfile {
   }
 
   getActiveCreature() {
-    console.log(this.creatures, this.activeCreatureIndex)
     return this.creatures[this.activeCreatureIndex];
   }
 
@@ -80,28 +80,28 @@ export class UserProfile {
 
   toJSON(): object {
     return {
-      creatures: this.creatures.map(creature => ({
-        name: creature.name,
-        stage: creature.stage,
-        stats: { ...creature.stats },
-        level: creature.level
-      })),
+      creatures: this.creatures.map(creature => creature.toJSON()),
       coins: this.coins,
       items: { ...this.items },
-      activeCreatureIndex: this.activeCreatureIndex
+      activeCreatureIndex: this.activeCreatureIndex,
+      version: UserProfile.version
     };
   }
 
-  static fromJSON(data: UserProfile): UserProfile {
+  static fromJSON(data: UserProfile & { version: number }): UserProfile {
+    if (data.version !== UserProfile.version) {
+      data.creatures = data.creatures.map(c => ({
+        stage: c.stage,
+        name: c.name,
+        energy: 0,
+        modifiers: { attack: 0, defense: 0, speed: 0 }
+      })) as Creature[];
+    }
     const profile = new UserProfile();
     profile.coins = data.coins;
     profile.items = { ...data.items };
     profile.activeCreatureIndex = data.activeCreatureIndex || 0;
-    profile.creatures = data.creatures.map(c => {
-      const creature = new Creature(c.name, c.stage, c.stats);
-      creature.level = c.level;
-      return creature;
-    });
+    profile.creatures = data.creatures.map(c => Creature.fromJSON(c));
     return profile;
   }
 }

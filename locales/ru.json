@@ -8,14 +8,16 @@
   },
   "battles": {
     "challenge": "{{challenger}} вызвал {{opponent}} на битву! {{opponent}}, вводи {{COMMAND_PREFIX}}accept чтобы сразиться или {{COMMAND_PREFIX}}decline, если зассал.",
-    "no_creatures": "{{player}}: нечем бороться",
+    "no_creatures": "{{player}}: у кого-то нет существ либо юзер не найден",
     "cant_fight_me": "Ты не можешь вызвать меня",
     "no_battles": "У {{player}} нет битв.",
-    "victory": "Существо игрока {{winner}} **{{winnerCreature}}** победило против существа игрока {{loser}} **{{loserCreature}}** и залевелапилось до {{level}} левела!",
+    "no_energy": "{{player}}: у одного из существ нет энергии",
+    "victory": "Существо игрока {{winner}} **{{winnerCreature}}** победило против существа игрока {{loser}} **{{loserCreature}}*!",
     "item_stolen": "{{winner}} стырил **{{item}}** у {{loser}}!",
     "coins_stolen": "{{winner}} стырил **{{amount}} монет** у {{loser}}!"
   },
   "items": {
+    "usage": "Использование команды !use: введи название предмета и он будет применен к активному существу",
     "use_success": "{{player}} использовал **{{item}}** на существо **{{creature}}**.",
     "use_fail": "{{item}} нельзя использовать.",
     "no_item": "У {{player}} нет **{{item}}**!",
